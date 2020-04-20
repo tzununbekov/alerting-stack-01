@@ -45,7 +45,7 @@ spec:
           template:
             spec:
               containers:
-                - image: ko://github.com/tzununbekov/flow1
+                - image: ko://github.com/tzununbekov/alerting-stack-01
                   env:
                     - name: TARGET
                       valueFrom:
