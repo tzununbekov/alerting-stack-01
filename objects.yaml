@@ -1,0 +1,68 @@
+# IMC
+---
+apiVersion: messaging.knative.dev/v1alpha1
+kind: InMemoryChannel
+metadata:
+  name: stats-channel
+
+# Prometheus source
+---
+apiVersion: sources.knative.dev/v1alpha1
+kind: PrometheusSource
+metadata:
+  name: prometheus-source
+spec:
+  serverURL: http://prometheus-operator-prometheus.monitoring:9090
+  # Review this request
+  promQL: 'sum(code_resource:apiserver_request_total:rate5m{verb="write"})'
+  schedule: "* * * * *"
+  step: 10s
+  sink:
+    ref:
+      apiVersion: messaging.knative.dev/v1alpha1
+      kind: InMemoryChannel
+      name: stats-channel
+
+# Slack secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-app
+data:
+  URI: <slack URI with tokens>
+
+# Process and send. Hardcoded for PrometheusSource response format
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: prometheus-to-slack
+spec:
+  template:
+    spec:
+      containers:
+        - image: ko://github.com/tzununbekov/alerting-stack-01
+          env:
+            - name: TARGET
+              valueFrom:
+                secretKeyRef:
+                  name: slack-app
+                  key: URI
+
+# Subs
+---
+apiVersion: messaging.knative.dev/v1alpha1
+kind: Subscription
+metadata:
+  name: stats-subs
+spec:
+  channel:
+    apiVersion: messaging.knative.dev/v1alpha1
+    kind: InMemoryChannel
+    name: stats-channel
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: prometheus-to-slack
